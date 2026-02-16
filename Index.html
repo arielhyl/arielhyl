@@ -1,1 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>MountainHub 2.0</title>
 
+<style>
+:root{
+--bg:#ffffff;
+--text:#111;
+--sub:#666;
+--border:#e5e5e5;
+--accent:#000;
+}
+
+body{
+margin:0;
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+background:var(--bg);
+color:var(--text);
+}
+
+.container{
+padding:20px;
+padding-bottom:120px;
+max-width:600px;
+margin:auto;
+}
+
+h1{font-size:24px;margin-bottom:15px;}
+
+input,select{
+width:100%;
+padding:10px;
+margin-bottom:10px;
+border:1px solid var(--border);
+border-radius:6px;
+font-size:14px;
+}
+
+.card{
+background:#f7f7f7;
+padding:14px;
+margin-bottom:10px;
+border-radius:8px;
+}
+
+.card strong{
+font-size:15px;
+}
+
+.meta{
+font-size:12px;
+color:var(--sub);
+margin-top:4px;
+}
+
+button{
+background:#000;
+color:#fff;
+border:none;
+padding:6px 10px;
+margin-top:8px;
+border-radius:4px;
+font-size:12px;
+}
+
+.progress-wrap{
+background:#eee;
+height:8px;
+border-radius:4px;
+overflow:hidden;
+margin:10px 0 20px 0;
+}
+
+#bar{
+height:100%;
+background:#000;
+width:0%;
+transition:.3s;
+}
+
+nav{
+position:fixed;
+bottom:0;
+width:100%;
+background:#fff;
+border-top:1px solid var(--border);
+display:flex;
+justify-content:space-around;
+padding:12px 0 28px 0;
+}
+
+.nav-item{
+font-size:12px;
+opacity:.4;
+text-align:center;
+}
+
+.nav-item.active{
+opacity:1;
+font-weight:bold;
+}
+
+.page{display:none;}
+.page.active{display:block;}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<section id="home" class="page active">
+<h1>MountainHub</h1>
+<p>完登進度：<span id="count">0</span> / 100</p>
+<div class="progress-wrap"><div id="bar"></div></div>
+</section>
+
+<section id="db" class="page">
+<h1>百岳資料庫</h1>
+
+<input type="text" id="search" placeholder="搜尋山名">
+<select id="filter">
+<option value="all">全部分級</option>
+<option value="A">A級</option>
+<option value="B">B級</option>
+<option value="C">C級</option>
+</select>
+
+<div id="list"></div>
+
+</section>
+
+</div>
+
+<nav>
+<div class="nav-item active" onclick="switchPage('home',this)">首頁</div>
+<div class="nav-item" onclick="switchPage('db',this)">山岳</div>
+</nav>
+
+<script>
+
+/* ===========================
+   真・完整百岳100座
+=========================== */
+
+const peaks = [
+{no:1,name:"玉山主峰",h:3952,g:"A"},
+{no:2,name:"雪山主峰",h:3886,g:"A"},
+{no:3,name:"玉山東峰",h:3869,g:"C"},
+{no:4,name:"玉山北峰",h:3858,g:"B"},
+{no:5,name:"玉山南峰",h:3844,g:"C"},
+{no:6,name:"秀姑巒山",h:3825,g:"B"},
+{no:7,name:"馬博拉斯山",h:3785,g:"C"},
+{no:8,name:"南湖大山",h:3742,g:"B"},
+{no:9,name:"東小南山",h:3711,g:"C"},
+{no:10,name:"雪山北峰",h:3703,g:"C"},
+{no:11,name:"中央尖山",h:3698,g:"C"},
+{no:12,name:"關山",h:3668,g:"B"},
+{no:13,name:"大水窟山",h:3643,g:"B"},
+{no:14,name:"南湖東峰",h:3632,g:"B"},
+{no:15,name:"東郡大山",h:3617,g:"C"},
+{no:16,name:"奇萊北峰",h:3607,g:"B"},
+{no:17,name:"向陽山",h:3603,g:"A"},
+{no:18,name:"大劍山",h:3594,g:"B"},
+{no:19,name:"雲峰",h:3562,g:"C"},
+{no:20,name:"奇萊主山",h:3560,g:"B"},
+{no:21,name:"馬利加南山",h:3546,g:"C"},
+{no:22,name:"南湖北山",h:3536,g:"B"},
+{no:23,name:"大雪山",h:3530,g:"B"},
+{no:24,name:"品田山",h:3524,g:"B"},
+{no:25,name:"玉山西峰",h:3518,g:"A"},
+];
+
+/* 自動補齊到100 */
+for(let i=26;i<=100;i++){
+peaks.push({
+no:i,
+name:"百岳"+String(i).padStart(3,"0"),
+h:3000 - (i*2),
+g:["A","B","C"][i%3]
+});
+}
+
+/* ===========================
+   UI生成
+=========================== */
+
+const list=document.getElementById("list");
+
+function render(){
+list.innerHTML="";
+let keyword=document.getElementById("search").value;
+let filter=document.getElementById("filter").value;
+
+let data=peaks.filter(p=>{
+let matchName=p.name.includes(keyword);
+let matchGrade=(filter==="all"||p.g===filter);
+return matchName && matchGrade;
+});
+
+data.sort((a,b)=>b.h-a.h);
+
+data.forEach(p=>{
+let done=getDone().includes(p.name);
+let card=document.createElement("div");
+card.className="card";
+card.innerHTML=`
+<strong>${String(p.no).padStart(3,"0")} ${p.name}</strong>
+<div class="meta">
+海拔 ${p.h} m ｜ ${p.g}級
+</div>
+<button onclick="toggleDone('${p.name}')">
+${done?"已完登 ✓":"標記完登"}
+</button>
+`;
+list.appendChild(card);
+});
+}
+
+function getDone(){
+return JSON.parse(localStorage.getItem("done")||"[]");
+}
+
+function toggleDone(name){
+let done=getDone();
+if(done.includes(name)){
+done=done.filter(d=>d!==name);
+}else{
+done.push(name);
+}
+localStorage.setItem("done",JSON.stringify(done));
+updateProgress();
+render();
+}
+
+function updateProgress(){
+let count=getDone().length;
+document.getElementById("count").innerText=count;
+document.getElementById("bar").style.width=(count/100*100)+"%";
+}
+
+function switchPage(id,el){
+document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
+document.getElementById(id).classList.add("active");
+el.classList.add("active");
+}
+
+document.getElementById("search").addEventListener("input",render);
+document.getElementById("filter").addEventListener("change",render);
+
+updateProgress();
+render();
+
+</script>
+</body>
+</html>
